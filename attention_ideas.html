@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novel Attention Compression Methods</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ]
+  });"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #7ee787;
+    --accent3: #d2a8ff;
+    --accent4: #ffa657;
+    --accent5: #ff7b72;
+    --code-bg: #1c2128;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 1rem;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+  h2 {
+    font-size: 1.5rem;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  h3 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+  p { margin-bottom: 1rem; }
+
+  .idea-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .idea-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .idea-card.idea1::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .idea-card.idea2::before { background: linear-gradient(90deg, var(--accent3), var(--accent4)); }
+  .idea-card.idea3::before { background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+  .idea-card.idea4::before { background: linear-gradient(90deg, var(--accent4), var(--accent5)); }
+  .idea-card.baseline::before { background: linear-gradient(90deg, var(--text-muted), var(--border)); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-feasible { background: #238636; color: #fff; }
+  .badge-risky { background: #9e6a03; color: #fff; }
+  .badge-existing { background: #30363d; color: var(--text-muted); }
+
+  .math-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    text-align: center;
+  }
+
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1rem 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text-muted);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tr:hover td { background: rgba(88, 166, 255, 0.05); }
+
+  .highlight { color: var(--accent); font-weight: 600; }
+  .highlight2 { color: var(--accent2); font-weight: 600; }
+  .highlight3 { color: var(--accent3); font-weight: 600; }
+  .highlight4 { color: var(--accent4); font-weight: 600; }
+
+  .pro-con {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .pro, .con {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .pro { border-left: 3px solid var(--accent2); }
+  .con { border-left: 3px solid var(--accent5); }
+  .pro h4 { color: var(--accent2); margin-bottom: 0.5rem; font-size: 0.85rem; }
+  .con h4 { color: var(--accent5); margin-bottom: 0.5rem; font-size: 0.85rem; }
+  .pro ul, .con ul { padding-left: 1.2rem; font-size: 0.9rem; }
+  .pro li, .con li { margin-bottom: 0.3rem; }
+
+  .comparison-summary {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin: 2rem 0;
+  }
+  .comparison-summary h2 { margin-top: 0; }
+
+  .tag {
+    display: inline-block;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+
+  .insight {
+    background: rgba(88, 166, 255, 0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.8rem 1.2rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+    color: var(--text-muted);
+  }
+
+  .katex { font-size: 1.05em; }
+  .katex-display { margin: 0.5rem 0; }
+
+  @media (max-width: 640px) {
+    body { padding: 1rem; }
+    .pro-con { grid-template-columns: 1fr; }
+    .idea-card { padding: 1rem 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Novel Attention Compression Methods</h1>
+<p class="subtitle">基于 MLA (Multi-Head Latent Attention) 的发散思考 — 4 种新型注意力压缩机制</p>
+
+<!-- ============================================================ -->
+<!-- Baseline: MLA -->
+<!-- ============================================================ -->
+<div class="idea-card baseline">
+  <h2>Baseline: MLA <span class="badge badge-existing">已有方法</span></h2>
+  <p><span class="tag">DeepSeek-V2/V3/V4</span> <span class="tag">低秩分解</span> <span class="tag">RoPE/NoPE 分离</span></p>
+
+  <h3>核心公式</h3>
+  <p>标准注意力需要缓存完整的 $K, V \in \mathbb{R}^{n \times d}$，MLA 改为缓存压缩后的 latent：</p>
+  <div class="math-block">
+    $$h \xrightarrow{W_{down}} c \in \mathbb{R}^{r} \xrightarrow{W_{up}^K, W_{up}^V} K, V$$
+  </div>
+  <p>KV Cache 从 $n \times 2d$ 降到 $n \times r$，其中 $r \ll d$。</p>
+  <p>RoPE 部分单独存储（不压缩），NoPE 部分通过 latent 压缩缓存。</p>
+
+  <h3>压缩比</h3>
+  <div class="math-block">
+    $$\text{Compression} = \frac{2d}{r + d_{rope}} \approx 3\times$$
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Idea 1: Delta-Compressed Attention -->
+<!-- ============================================================ -->
+<div class="idea-card idea1">
+  <h2>💡 Idea 1: Delta-Compressed Attention (ΔCA) <span class="badge badge-feasible">很可行</span></h2>
+  <p><span class="tag">视频编码启发</span> <span class="tag">时序冗余</span> <span class="tag">与 MLA 正交</span></p>
+
+  <h3>灵感来源</h3>
+  <p>视频编码 (H.264) 的 <span class="highlight">I 帧 + P 帧</span> 策略：关键帧精确存储，中间帧只存差值。</p>
+
+  <h3>核心观察</h3>
+  <p>连续 token 的 KV 向量高度相似。MLA 把每个 token 当独立的来压缩，<span class="highlight">完全忽略了时序冗余</span>。</p>
+
+  <h3>算法</h3>
+  <p>每隔 $B$ 个 token 存一个完整的<strong>关键帧</strong> $k_{anchor}$，中间只存差值并低秩压缩：</p>
+  <div class="math-block">
+    $$c_i = k_i - k_{\lfloor i/B \rfloor \cdot B}$$
+    $$\tilde{c}_i = W_{down} \cdot c_i, \quad W_{down} \in \mathbb{R}^{r \times d}, \quad r \ll d$$
+  </div>
+  <p>还原时：</p>
+  <div class="math-block">
+    $$\hat{k}_i = k_{\lfloor i/B \rfloor \cdot B} + W_{up} \cdot \tilde{c}_i$$
+  </div>
+
+  <h3>数据流图</h3>
+  <div class="diagram">Token:    t0      t1      t2      ...     t7      t8      t9      ...
+          |       |       |               |       |       |
+Type:   anchor  delta   delta           delta   anchor  delta
+          |       |       |               |       |       |
+Store:  [full d] [comp r] [comp r]      [comp r] [full d] [comp r]
+          ↑                                       ↑
+          └──── 关键帧间隔 B=8 ──────────────────────┘</div>
+
+  <h3>缓存大小分析</h3>
+  <div class="math-block">
+    $$\text{Cache}_{ΔCA} = \underbrace{\frac{n}{B} \cdot d}_{\text{关键帧}} + \underbrace{n \cdot r}_{\text{压缩差值}} = n \left(\frac{d}{B} + r\right)$$
+  </div>
+  <p>取 $B=8, r=d/4$：</p>
+  <div class="math-block">
+    $$\text{Compression} = \frac{2d}{\frac{d}{8} + \frac{d}{4}} = \frac{2d}{\frac{3d}{8}} \approx 5.3\times$$
+  </div>
+
+  <h3>关键：差值的低秩性</h3>
+  <p>为什么差值可以用更低的秩压缩？因为：</p>
+  <div class="math-block">
+    $$\text{Var}(c_i) = \text{Var}(k_i - k_{anchor}) \ll \text{Var}(k_i)$$
+  </div>
+  <p>差值集中在一个<strong>更小的子空间</strong>里。直觉上：相邻 token 关注的"内容"相似，差异主要在局部语义微调。</p>
+
+  <div class="pro-con">
+    <div class="pro">
+      <h4>✓ 优势</h4>
+      <ul>
+        <li>与 MLA 正交，可叠加使用</li>
+        <li>思路直觉、实现简单</li>
+        <li>$W_{down}, W_{up}$ 端到端可训</li>
+        <li>$B$ 可调节压缩比 vs 精度</li>
+      </ul>
+    </div>
+    <div class="con">
+      <h4>✗ 挑战</h4>
+      <ul>
+        <li>关键帧边界处的不连续性</li>
+        <li>长距离依赖的差值可能不再低秩</li>
+        <li>训练时需 teacher forcing anchor</li>
+        <li>预填充阶段无明显加速</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="insight">
+    核心 insight：MLA 压缩特征维度的冗余，ΔCA 压缩时序维度的冗余。两个维度的冗余是独立的，所以可以叠加。
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Idea 2: Implicit Neural KV Cache -->
+<!-- ============================================================ -->
+<div class="idea-card idea2">
+  <h2>💡 Idea 2: Implicit Neural KV Cache (INKV) <span class="badge badge-risky">需验证</span></h2>
+  <p><span class="tag">NeRF 启发</span> <span class="tag">神经隐式表示</span> <span class="tag">极限压缩</span></p>
+
+  <h3>灵感来源</h3>
+  <p>NeRF 用一个小 MLP 隐式表示整个 3D 场景。类比：用小网络<span class="highlight3">隐式编码整个 KV Cache</span>。</p>
+
+  <h3>核心思想</h3>
+  <p>不存 KV 向量本身，而是存一个能"回忆"任意位置 KV 的小网络：</p>
+  <div class="math-block">
+    $$k_i = f_\theta(\text{PE}(i), z_i), \quad v_i = g_\theta(\text{PE}(i), z_i)$$
+  </div>
+  <p>其中 $f_\theta, g_\theta$ 是<strong>极小的 MLP</strong>（2 层，宽度 64），$z_i \in \mathbb{R}^{z_{dim}}$ 是每个 token 的低维"指纹"，$\theta$ 在推理时<strong>在线拟合</strong>。</p>
+
+  <h3>架构图</h3>
+  <div class="diagram">                    ┌─────────────────┐
+  position i ──→ │  Positional      │
+                 │  Encoding PE(i)  │──┐
+                 └─────────────────┘  │    ┌──────────┐
+                                      ├──→ │ MLP f_θ  │ ──→ k_i
+  token finger-  ┌────────────┐       │    │ (tiny,   │
+  print z_i ───→ │ Stored per │ ──────┘    │  2-layer)│ ──→ v_i
+                 │ token (16d)│            └──────────┘
+                 └────────────┘                 ↑
+                                          θ 在线拟合
+                                        (每 token 几步 SGD)</div>
+
+  <h3>缓存大小分析</h3>
+  <div class="math-block">
+    $$\text{Cache}_{INKV} = \underbrace{|\theta|}_{\text{MLP 参数}} + \underbrace{n \cdot z_{dim}}_{\text{token 指纹}}$$
+  </div>
+  <p>设 $|\theta| = 10K$ 参数，$z_{dim} = 16$，$d = 4096$，$n = 100K$：</p>
+  <div class="math-block">
+    $$\text{标准} = 100K \times 2 \times 4096 \approx 800M \quad \text{vs} \quad \text{INKV} = 10K + 100K \times 16 \approx 1.6M$$
+  </div>
+  <p><span class="highlight3">压缩 ~500×</span>（理论上限，实际取决于拟合精度）</p>
+
+  <h3>混合策略：近精确 + 远模糊</h3>
+  <div class="math-block">
+    $$\text{Cache} = \underbrace{[\text{精确 KV}]}_{\text{最近 } W \text{ 个 token}} \cup \underbrace{[f_\theta, g_\theta, \{z_i\}]}_{\text{更早的 token（隐式）}}$$
+  </div>
+  <p class="insight">类似人类记忆：近期记忆精确，远期记忆模糊但高度压缩。</p>
+
+  <div class="pro-con">
+    <div class="pro">
+      <h4>✓ 优势</h4>
+      <ul>
+        <li>理论压缩比极高</li>
+        <li>缓存大小与序列长度弱相关</li>
+        <li>天然支持超长上下文</li>
+        <li>可与滑动窗口注意力结合</li>
+      </ul>
+    </div>
+    <div class="con">
+      <h4>✗ 挑战</h4>
+      <ul>
+        <li>在线拟合速度是瓶颈（推理延迟）</li>
+        <li>小 MLP 容量有限，长序列信息丢失</li>
+        <li>训练时如何端到端优化？</li>
+        <li>拟合误差对注意力质量的影响未知</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Idea 3: Stochastic Rank Attention -->
+<!-- ============================================================ -->
+<div class="idea-card idea3">
+  <h2>💡 Idea 3: Stochastic Rank Attention (SRA) <span class="badge badge-feasible">很可行</span></h2>
+  <p><span class="tag">Dropout 反向思维</span> <span class="tag">随机矩阵理论</span> <span class="tag">训练即一行代码</span></p>
+
+  <h3>灵感来源</h3>
+  <p><strong>Dropout</strong>：训练时随机丢弃 → 推理时保持全部。</p>
+  <p><strong>SRA 反其道</strong>：训练时用<span class="highlight2">随机变化的压缩秩</span> → 推理时用<span class="highlight2">固定低秩</span>。</p>
+
+  <h3>算法</h3>
+  <p>训练时，每个 forward pass 随机选择压缩秩：</p>
+  <div class="math-block">
+    $$r_t \sim \text{Uniform}(r_{min}, r_{max})$$
+    $$K = W_{up}[:, :r_t] \cdot W_{down}[:r_t, :] \cdot h$$
+  </div>
+  <p>推理时，固定 $r = r_{min}$，获得最大压缩。</p>
+
+  <h3>为什么有效？隐式核范数正则化</h3>
+  <p>设投影矩阵的奇异值为 $\sigma_1 \geq \sigma_2 \geq ... \geq \sigma_d$，维度 $i$ 在训练中被保留的概率为：</p>
+  <div class="math-block">
+    $$P(i \text{ 被保留}) = P(r_t \geq i) = \frac{r_{max} - i + 1}{r_{max} - r_{min} + 1}$$
+  </div>
+  <p>高编号维度被选中的概率低。梯度期望：</p>
+  <div class="math-block">
+    $$\mathbb{E}\left[\frac{\partial \mathcal{L}}{\partial \sigma_i}\right] \propto P(i) \cdot \frac{\partial \mathcal{L}}{\partial \sigma_i}$$
+  </div>
+  <p>效果等价于对投影矩阵施加<strong>加权核范数正则化</strong>：</p>
+  <div class="math-block">
+    $$\mathcal{L}_{implicit} \propto \sum_{i} w_i \cdot \sigma_i, \quad w_i = 1 - P(i)$$
+  </div>
+  <p>模型被迫把重要信息集中到前几个奇异方向 → 低秩时信息损失最小。</p>
+
+  <h3>伪代码</h3>
+  <div class="diagram">def forward(self, h):
+    if self.training:
+        r = random.randint(self.r_min, self.r_max)  # 随机秩
+    else:
+        r = self.r_min  # 推理时最大压缩
+
+    latent = h @ self.W_down[:r, :].T   # [B, S, r]
+    K = latent @ self.W_up_K[:, :r].T   # [B, S, d]
+    V = latent @ self.W_up_V[:, :r].T   # [B, S, d]
+    return K, V</div>
+
+  <div class="pro-con">
+    <div class="pro">
+      <h4>✓ 优势</h4>
+      <ul>
+        <li>实现极简（改一行代码）</li>
+        <li>无额外参数、无额外计算</li>
+        <li>可直接应用于 MLA</li>
+        <li>理论优雅（隐式正则化）</li>
+      </ul>
+    </div>
+    <div class="con">
+      <h4>✗ 挑战</h4>
+      <ul>
+        <li>额外压缩比有限（~2×）</li>
+        <li>$r_{min}$ 选择敏感</li>
+        <li>训练不稳定风险（秩变化太剧烈）</li>
+        <li>需要从头训练（不适用于已有模型）</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="insight">
+    最 elegant 的想法：不改架构，不加参数，仅通过训练策略让模型"主动"把信息集中到低秩子空间。
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Idea 4: Tensor Train KV Cache -->
+<!-- ============================================================ -->
+<div class="idea-card idea4">
+  <h2>💡 Idea 4: Tensor-Train Attention (TTA) <span class="badge badge-risky">需验证</span></h2>
+  <p><span class="tag">量子启发</span> <span class="tag">张量网络</span> <span class="tag">高阶相关性</span></p>
+
+  <h3>灵感来源</h3>
+  <p>量子计算中的<strong>张量网络 (Tensor Train)</strong>：用链式低秩张量乘积表示高维对象。</p>
+
+  <h3>核心思想</h3>
+  <p>把 $d$ 维 KV 向量视为 $m = \log_2 d$ 个 "qubit" 的联合状态，用 TT 分解：</p>
+  <div class="math-block">
+    $$k_i[j_1, j_2, ..., j_m] = G_1^{(i)}[j_1] \cdot G_2^{(i)}[j_2] \cdot \ldots \cdot G_m^{(i)}[j_m]$$
+  </div>
+  <p>每个核心 $G_l^{(i)} \in \mathbb{R}^{r \times 2 \times r}$（$j_l \in \{0,1\}$），总参数：</p>
+  <div class="math-block">
+    $$\text{TT 参数} = m \cdot 2r^2 \quad \text{vs} \quad \text{原始} = d = 2^m$$
+  </div>
+
+  <h3>直觉图示</h3>
+  <div class="diagram">标准 KV 向量 (d=4096):
+  k = [k_1, k_2, k_3, ..., k_4096]    → 存 4096 个数
+
+TT 分解 (m=12 qubits, rank r=4):
+  k ≈ G₁ — G₂ — G₃ — ... — G₁₂       → 存 12 × 2 × 4² = 384 个数
+       │     │     │           │
+      j₁    j₂    j₃         j₁₂        (每个 jₗ ∈ {0,1})
+
+  压缩比: 4096 / 384 ≈ 10.7×</div>
+
+  <h3>vs 低秩分解 (MLA)</h3>
+  <div class="math-block">
+    $$\underbrace{k = W \cdot c}_{\text{MLA: 捕捉线性相关性}} \quad \text{vs} \quad \underbrace{k = \text{TT}(G_1, ..., G_m)}_{\text{TTA: 捕捉高阶非线性相关性}}$$
+  </div>
+  <p>MLA 的低秩分解只能捕捉维度间的<strong>二阶相关性</strong>（协方差矩阵），TT 可以捕捉<strong>任意阶相关性</strong>。</p>
+
+  <h3>注意力计算</h3>
+  <p>TT 格式下，内积 $q^T k$ 可以高效计算，无需还原完整向量：</p>
+  <div class="math-block">
+    $$q^T k = \text{tr}\left(\prod_{l=1}^{m} \sum_{j_l} Q_l[j_l] \otimes G_l[j_l]\right)$$
+  </div>
+  <p>复杂度 $O(m \cdot r^4)$ vs 原始 $O(d) = O(2^m)$，在 $r$ 小且 $d$ 大时有优势。</p>
+
+  <div class="pro-con">
+    <div class="pro">
+      <h4>✓ 优势</h4>
+      <ul>
+        <li>压缩比高（~10×）</li>
+        <li>捕捉高阶相关性</li>
+        <li>数学理论完善（张量网络）</li>
+        <li>可控制压缩精度（调 rank $r$）</li>
+      </ul>
+    </div>
+    <div class="con">
+      <h4>✗ 挑战</h4>
+      <ul>
+        <li>反向传播通过 TT 链较复杂</li>
+        <li>GPU 不擅长小矩阵连乘</li>
+        <li>正交化/稳定化需额外操作</li>
+        <li>实际 wall-clock 加速不确定</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Comparison Summary -->
+<!-- ============================================================ -->
+<div class="comparison-summary">
+  <h2>📊 总结对比</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>方法</th>
+        <th>数学工具</th>
+        <th>利用的冗余</th>
+        <th>理论压缩比</th>
+        <th>可行性</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>MLA</strong> (已有)</td>
+        <td>线性低秩分解</td>
+        <td>特征维度</td>
+        <td>~3×</td>
+        <td>✅ 已验证</td>
+      </tr>
+      <tr>
+        <td><span class="highlight">ΔCA</span></td>
+        <td>差分编码 + 低秩</td>
+        <td>时序冗余</td>
+        <td>~3-5×</td>
+        <td>✅ 很可行</td>
+      </tr>
+      <tr>
+        <td><span class="highlight3">INKV</span></td>
+        <td>神经隐式表示</td>
+        <td>全局模式</td>
+        <td>~100-500×</td>
+        <td>⚠️ 需验证</td>
+      </tr>
+      <tr>
+        <td><span class="highlight2">SRA</span></td>
+        <td>随机矩阵理论</td>
+        <td>训练正则化</td>
+        <td>~2× 额外</td>
+        <td>✅ 很可行</td>
+      </tr>
+      <tr>
+        <td><span class="highlight4">TTA</span></td>
+        <td>张量网络分解</td>
+        <td>高阶相关性</td>
+        <td>~10×</td>
+        <td>⚠️ 需验证</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top: 1.5rem;">推荐研究路线</h3>
+  <p><strong>短期（低风险）：</strong> 先在本项目的 110M 模型上实验 <span class="highlight2">SRA</span>（改一行代码）和 <span class="highlight">ΔCA</span>（实现简单），验证压缩效果和损失。</p>
+  <p><strong>中期（中等风险）：</strong> 实验 <span class="highlight4">TTA</span>，需要实现 TT 前向/反向传播，但数学框架成熟。</p>
+  <p><strong>长期（高风险高回报）：</strong> <span class="highlight3">INKV</span> 如果在线拟合速度问题可解，潜力最大——可能从根本上改变 KV Cache 的存储范式。</p>
+</div>
+
+<p style="text-align: center; color: var(--text-muted); margin-top: 3rem; font-size: 0.85rem;">
+  Generated for nanowhale project research &bull; May 2026
+</p>
+
+</body>
+</html>
