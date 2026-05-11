@@ -54,6 +54,7 @@ def main():
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--hub_model_id", type=str, default=None)
     parser.add_argument("--resume_from_checkpoint", type=str, default=None)
+    parser.add_argument("--active_memory", action="store_true", help="Replace attention with ActiveMemoryAttention")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -63,13 +64,18 @@ def main():
     # Build model and tokenizer
     torch.set_float32_matmul_precision('high')
     model = build_model(model_cfg)
+    if args.active_memory:
+        from active_memory_attention import replace_attention_with_active_memory
+        replace_attention_with_active_memory(model)
+        print("Active Memory Attention enabled")
     if torch.cuda.is_available():
         model = torch.compile(model)
         print("torch.compile enabled")
     tokenizer = build_tokenizer()
 
     # Output directory
-    output_dir = args.output_dir or f"checkpoints/pretrain_{os.path.basename(args.config).replace('.yaml', '')}"
+    suffix = "_active_memory" if args.active_memory else ""
+    output_dir = args.output_dir or f"checkpoints/pretrain_{os.path.basename(args.config).replace('.yaml', '')}{suffix}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Dataset
@@ -142,7 +148,7 @@ def main():
         import trackio
         trackio.init(
             project="smol-deepseek-v4",
-            name=f"pretrain-dsv4-{os.path.basename(args.config).replace('.yaml', '')}",
+            name=f"pretrain-dsv4-{os.path.basename(args.config).replace('.yaml', '')}{suffix}",
         )
         sft_config.report_to = ["trackio"]
         print("Trackio logging enabled")
