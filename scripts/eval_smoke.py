@@ -10,8 +10,8 @@ from transformers import PreTrainedTokenizerFast, AutoConfig, AutoModelForCausal
 from configuration_deepseek_v4 import DeepseekV4Config
 from modeling_deepseek_v4 import DeepseekV4ForCausalLM
 
-AutoConfig.register("deepseek_v4", DeepseekV4Config)
-AutoModelForCausalLM.register(DeepseekV4Config, DeepseekV4ForCausalLM)
+AutoConfig.register("deepseek_v4", DeepseekV4Config, exist_ok=True)
+AutoModelForCausalLM.register(DeepseekV4Config, DeepseekV4ForCausalLM, exist_ok=True)
 
 
 def main():

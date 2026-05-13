@@ -1,0 +1,22 @@
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+checkpoints/
+
+# Env
+.env
+.venv/
+venv/
+env/

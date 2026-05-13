@@ -270,16 +270,35 @@ python scripts/train_pretrain.py --config configs/main_100m.yaml \
 ### 结果记录模板
 
 ```
-| 实验 | PPL ↓ | Loss ↓ | 远距回忆(500) | 多跳推理(2跳) | 抗干扰(20) | ms/step |
+| 实验                  | PPL ↓  | Loss ↓ | 远距回忆 rank@N=512 ↓ | 多跳推理(2跳) | 抗干扰(20) | sec/step |
 |---|---|---|---|---|---|---|
-| Standard MLA | - | - | - | - | - | - |
-| Active Memory (full) | - | - | - | - | - | - |
-| AM (no decay) | - | - | - | - | - | - |
-| AM (no spread) | - | - | - | - | - | - |
-| AM (no noise) | - | - | - | - | - | - |
-| AM (no beta) | - | - | - | - | - | - |
-| AM (static bias) | - | - | - | - | - | - |
+| Standard MLA          | 71.29  | 4.267  | 16578 (logp -13.53)   | -            | -          | 3.77     |
+| Active Memory (full)  | 59.91  | 4.093  | 13003 (logp -13.00)   | -            | -          | 7.71     |
+| AM (no decay)         | -      | -      | -                     | -            | -          | -        |
+| AM (no spread)        | -      | -      | -                     | -            | -          | -        |
+| AM (no noise)         | -      | -      | -                     | -            | -          | -        |
+| AM (no beta)          | -      | -      | -                     | -            | -          | -        |
+| AM (static bias)      | -      | -      | -                     | -            | -          | -        |
 ```
+
+**实验状态**（2026-05-13）：
+
+- **PPL / Loss**：200 篇 held-out FineWeb-Edu 文档（跳过前 20 万篇避开训练分布）上的聚合值。AM 较 baseline 降 **15.96%** 相对 PPL；配对 t 检验 t = -30.0, p ≈ 0，显著。
+- **远距回忆**：原设计为 acc@1，但 110M 模型在 N=0 时 acc@1 就已经是 0%，无法呈现衰减曲线。改用 **目标 token 的 rank**（vocab 内排名，越低越好）和 **logp(target)**。完整曲线（10 个 single-token secrets × 5 trials × 6 个距离 = 300 probes / 模型）：
+
+  | N (filler tokens) | baseline logp | AM logp | Δ logp | baseline rank | AM rank |
+  |---|---|---|---|---|---|
+  | 0 | -8.85 | -9.23 | **-0.38** | 1763 | 1525 |
+  | 64 | -10.94 | -9.64 | +1.30 | 5424 | 2043 |
+  | 256 | -12.55 | -10.82 | +1.73 | 14088 | 6156 |
+  | 512 | -13.53 | -13.00 | +0.53 | 16578 | 13003 |
+  | 1024 | -13.24 | -12.68 | +0.56 | 16233 | 12710 |
+  | 1800 | -13.06 | -11.93 | +1.13 | 12683 | 9564 |
+
+  观察：N=0 时 AM 略差（无记忆可保持，noise/decay 反而是负担）；N>0 时 AM 一致更优（rank 约为 baseline 的一半，Δlogp 约 +1 nat）。但 Δlogp **不随 N 单调增长**，表明 AM 的优势是恒定的"全局更好"，**不是设计文档主张的"长程更好"**——机制特异性证据有限。所有 N 下 acc@1 = 0%，模型规模不足以做绝对复制任务。
+- **多跳推理 / 抗干扰**：未测。
+- **sec/step**：从 trackio 抄。同样 5000 步 / 326.6M token，AM wall-clock 2.04× 于 baseline（GPU bound on 单卡 cuda:1 RTX 4090）。
+- **消融行**：需要重新训练 5 次（每次 ~10.7h），暂未启动。
 
 ---
 
